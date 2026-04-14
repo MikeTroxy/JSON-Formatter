@@ -1,0 +1,26 @@
+:root {
+  /* Surfaces */
+  --bg:       #1a1b1e;
+  --surface:  #25262b;
+  --surface2: #2c2e33;
+  --border:   #373a40;
+
+  /* Text */
+  --text:     #c1c2c5;
+  --text-dim: #5c5f66;
+
+  /* UI accents */
+  --accent:       #4dabf7;
+  --accent-hover: #74c0fc;
+  --error:        #ff6b6b;
+  --success:      #69db7c;
+
+  /* Syntax highlighting */
+  --key:    #e599f7;
+  --string: #69db7c;
+  --number: #ffa94d;
+  --bool:   #4dabf7;
+  --null:   #ff6b6b;
+  --brace:  #c1c2c5;
+  --arrow:  #5c5f66;
+}

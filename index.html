@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JSON Formatter</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="drop-overlay" id="drop-overlay">Drop JSON file here</div>
+
+<header>
+  <span class="logo">JSON Formatter</span>
+  <div class="header-actions">
+    <button id="btn-pretty" class="active" onclick="setPretty(true)">Pretty Print</button>
+    <button id="btn-minify" onclick="setPretty(false)">Minify</button>
+    <button onclick="clearAll()">Clear</button>
+    <button onclick="document.getElementById('file-input').click()">Open File</button>
+    <button id="btn-copy" onclick="copyOutput()">Copy Output</button>
+    <input type="file" id="file-input" accept=".json,application/json">
+  </div>
+</header>
+
+<div class="main">
+  <!-- Input pane -->
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-label">Input</span>
+      <div class="pane-meta">
+        <span class="meta-item" id="in-chars">0 chars</span>
+        <span class="meta-item" id="in-lines">0 lines</span>
+      </div>
+    </div>
+    <div class="editor-wrap">
+      <div class="line-numbers" id="ln-input"><span>1</span></div>
+      <textarea id="input" placeholder="Paste or type JSON here..." spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off"></textarea>
+    </div>
+    <div class="status-bar">
+      <span id="status-msg" class="status-valid">Ready</span>
+    </div>
+  </div>
+
+  <!-- Output pane -->
+  <div class="pane">
+    <div class="pane-header">
+      <span class="pane-label">Output</span>
+      <div class="pane-meta">
+        <span class="meta-item" id="out-chars">0 chars</span>
+        <span class="meta-item" id="out-lines">0 lines</span>
+        <button id="btn-expand-all" style="padding:3px 8px;font-size:10px;" onclick="expandAll()">Expand All</button>
+        <button id="btn-collapse-all" style="padding:3px 8px;font-size:10px;" onclick="collapseAll()">Collapse All</button>
+      </div>
+    </div>
+    <div class="output-scroll" id="output-scroll">
+      <div class="output-inner">
+        <div class="output-lines" id="ln-output"><span>1</span></div>
+        <div id="output"></div>
+      </div>
+    </div>
+    <div class="status-bar">
+      <span id="out-status"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+let prettyMode = true;
+let currentParsed = null;
+
+const inputEl = document.getElementById('input');
+const outputEl = document.getElementById('output');
+const statusMsg = document.getElementById('status-msg');
+const outStatus = document.getElementById('out-status');
+const lnInput = document.getElementById('ln-input');
+const lnOutput = document.getElementById('ln-output');
+const inChars = document.getElementById('in-chars');
+const inLines = document.getElementById('in-lines');
+const outChars = document.getElementById('out-chars');
+const outLines = document.getElementById('out-lines');
+
+// ── Line numbers ───────────────────────────────────────────────
+function updateInputLineNumbers() {
+  const lines = inputEl.value.split('\n').length;
+  let html = '';
+  for (let i = 1; i <= lines; i++) html += `<span>${i}</span>`;
+  lnInput.innerHTML = html;
+  syncScroll();
+}
+
+function updateOutputLineNumbers(count) {
+  let html = '';
+  for (let i = 1; i <= Math.max(count, 1); i++) html += `<span>${i}</span>`;
+  lnOutput.innerHTML = html;
+}
+
+function syncScroll() {
+  lnInput.scrollTop = inputEl.scrollTop;
+}
+inputEl.addEventListener('scroll', syncScroll);
+
+// ── Core process ───────────────────────────────────────────────
+function process() {
+  const raw = inputEl.value;
+  inChars.textContent = raw.length.toLocaleString() + ' chars';
+  inLines.textContent = (raw.split('\n').length) + ' lines';
+  updateInputLineNumbers();
+
+  if (!raw.trim()) {
+    outputEl.innerHTML = '';
+    statusMsg.textContent = 'Ready';
+    statusMsg.className = 'status-valid';
+    outStatus.textContent = '';
+    updateStats('', 0);
+    updateOutputLineNumbers(1);
+    return;
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (e) {
+    currentParsed = null;
+    outputEl.innerHTML = '';
+    updateStats('', 0);
+    updateOutputLineNumbers(1);
+    const line = getErrorLine(raw, e);
+    statusMsg.textContent = `Error${line ? ' (line ' + line + ')' : ''}: ${e.message}`;
+    statusMsg.className = 'status-error';
+    outStatus.textContent = '';
+    return;
+  }
+
+  currentParsed = parsed;
+  statusMsg.textContent = 'Valid JSON';
+  statusMsg.className = 'status-valid';
+
+  if (prettyMode) {
+    renderTree(parsed);
+  } else {
+    const minified = JSON.stringify(parsed);
+    outputEl.innerHTML = syntaxHighlightFlat(minified);
+    updateStats(minified, 1);
+    updateOutputLineNumbers(1);
+  }
+}
+
+function updateStats(text, lineCount) {
+  outChars.textContent = text.length.toLocaleString() + ' chars';
+  outLines.textContent = lineCount + ' lines';
+}
+
+// ── Error line detection ───────────────────────────────────────
+function getErrorLine(raw, e) {
+  const msg = e.message;
+  const posMatch = msg.match(/position\s+(\d+)/i) || msg.match(/at\s+(\d+)/i);
+  if (posMatch) {
+    const pos = parseInt(posMatch[1]);
+    return raw.substring(0, pos).split('\n').length;
+  }
+  // Try to extract from "line X column Y"
+  const lineMatch = msg.match(/line\s+(\d+)/i);
+  if (lineMatch) return parseInt(lineMatch[1]);
+  return null;
+}
+
+// ── Flat syntax highlight (for minified) ──────────────────────
+function syntaxHighlightFlat(str) {
+  str = str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return str.replace(
+    /("(\\u[0-9a-fA-F]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?|[{}\[\],:])/g,
+    match => {
+      if (/^"/.test(match)) {
+        if (/:$/.test(match)) return `<span class="jk">${match}</span>`;
+        return `<span class="js">${match}</span>`;
+      }
+      if (/true|false/.test(match)) return `<span class="jb">${match}</span>`;
+      if (/null/.test(match)) return `<span class="jl">${match}</span>`;
+      if (/[{}\[\]]/.test(match)) return `<span class="jp">${match}</span>`;
+      if (/[,:]/.test(match)) return `<span class="jp">${match}</span>`;
+      return `<span class="jn">${match}</span>`;
+    }
+  );
+}
+
+// ── Tree renderer ──────────────────────────────────────────────
+let lineCounter = 0;
+
+function renderTree(data) {
+  lineCounter = 0;
+  const frag = document.createDocumentFragment();
+  buildNode(frag, data, 0, true, false);
+  outputEl.innerHTML = '';
+  outputEl.appendChild(frag);
+  // count lines
+  const total = outputEl.innerText.split('\n').length;
+  updateStats(JSON.stringify(data, null, 2), total);
+  updateOutputLineNumbers(total);
+  outStatus.textContent = '';
+}
+
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function makeText(text) {
+  const t = document.createTextNode(text);
+  return t;
+}
+
+function span(cls, text) {
+  const s = document.createElement('span');
+  s.className = cls;
+  s.textContent = text;
+  return s;
+}
+
+function buildNode(parent, value, indent, isLast, isValue) {
+  const indentStr = '  '.repeat(indent);
+  const indentStr1 = '  '.repeat(indent + 1);
+
+  if (value === null) {
+    const s = span('jl', 'null');
+    parent.appendChild(s);
+    parent.appendChild(makeText(isLast ? '\n' : ',\n'));
+  } else if (typeof value === 'boolean') {
+    parent.appendChild(span('jb', String(value)));
+    parent.appendChild(makeText(isLast ? '\n' : ',\n'));
+  } else if (typeof value === 'number') {
+    parent.appendChild(span('jn', String(value)));
+    parent.appendChild(makeText(isLast ? '\n' : ',\n'));
+  } else if (typeof value === 'string') {
+    parent.appendChild(span('js', '"' + escStr(value) + '"'));
+    parent.appendChild(makeText(isLast ? '\n' : ',\n'));
+  } else if (Array.isArray(value)) {
+    buildCollapsible(parent, value, indent, isLast, true);
+  } else if (typeof value === 'object') {
+    buildCollapsible(parent, value, indent, isLast, false);
+  }
+}
+
+function escStr(s) {
+  return s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\r/g, '\\r')
+    .replace(/\t/g, '\\t');
+}
+
+function buildCollapsible(parent, value, indent, isLast, isArray) {
+  const open = isArray ? '[' : '{';
+  const close = isArray ? ']' : '}';
+  const keys = isArray ? null : Object.keys(value);
+  const len = isArray ? value.length : keys.length;
+  const indentStr = '  '.repeat(indent);
+  const indentStr1 = '  '.repeat(indent + 1);
+
+  if (len === 0) {
+    parent.appendChild(span('jp', open + close));
+    parent.appendChild(makeText(isLast ? '\n' : ',\n'));
+    return;
+  }
+
+  // Wrapper div for collapse
+  const wrapper = document.createElement('span');
+  wrapper.className = 'node';
+
+  // Toggle arrow
+  const toggle = document.createElement('span');
+  toggle.className = 'toggle';
+  toggle.textContent = '▾';
+  toggle.addEventListener('click', () => {
+    wrapper.classList.toggle('collapsed');
+  });
+
+  wrapper.appendChild(toggle);
+  wrapper.appendChild(span('jp', open));
+
+  // Ellipsis shown when collapsed
+  const ell = document.createElement('span');
+  ell.className = 'ellipsis';
+  ell.textContent = ' … ';
+  wrapper.appendChild(ell);
+
+  // Collapsible content
+  const content = document.createElement('span');
+  content.className = 'collapsible';
+  content.appendChild(makeText('\n'));
+
+  const items = isArray ? value : keys;
+  items.forEach((item, i) => {
+    const isLastItem = i === items.length - 1;
+    const itemIndent = document.createTextNode(indentStr1);
+    content.appendChild(itemIndent);
+
+    if (!isArray) {
+      content.appendChild(span('jk', '"' + escStr(item) + '"'));
+      content.appendChild(span('jp', ': '));
+      buildNode(content, value[item], indent + 1, isLastItem, true);
+    } else {
+      buildNode(content, item, indent + 1, isLastItem, true);
+    }
+  });
+
+  content.appendChild(makeText(indentStr));
+  wrapper.appendChild(content);
+
+  // Closing bracket
+  wrapper.appendChild(span('jp', close));
+  wrapper.appendChild(makeText(isLast ? '\n' : ',\n'));
+
+  parent.appendChild(wrapper);
+}
+
+// ── Collapse / Expand all ──────────────────────────────────────
+function collapseAll() {
+  outputEl.querySelectorAll('.node').forEach(n => n.classList.add('collapsed'));
+}
+function expandAll() {
+  outputEl.querySelectorAll('.node').forEach(n => n.classList.remove('collapsed'));
+}
+
+// ── Mode toggle ────────────────────────────────────────────────
+function setPretty(val) {
+  prettyMode = val;
+  document.getElementById('btn-pretty').classList.toggle('active', val);
+  document.getElementById('btn-minify').classList.toggle('active', !val);
+  process();
+}
+
+// ── Copy ───────────────────────────────────────────────────────
+function copyOutput() {
+  const text = outputEl.innerText;
+  if (!text.trim()) return;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = 'Copied!';
+    btn.classList.add('success');
+    setTimeout(() => {
+      btn.textContent = 'Copy Output';
+      btn.classList.remove('success');
+    }, 1800);
+  });
+}
+
+// ── Clear ──────────────────────────────────────────────────────
+function clearAll() {
+  inputEl.value = '';
+  process();
+}
+
+// ── File open ──────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    inputEl.value = ev.target.result;
+    process();
+  };
+  reader.readAsText(file);
+  e.target.value = '';
+});
+
+// ── Drag & drop ────────────────────────────────────────────────
+const overlay = document.getElementById('drop-overlay');
+let dragCounter = 0;
+
+document.addEventListener('dragenter', e => {
+  e.preventDefault();
+  dragCounter++;
+  overlay.classList.add('active');
+});
+document.addEventListener('dragleave', () => {
+  dragCounter--;
+  if (dragCounter <= 0) { dragCounter = 0; overlay.classList.remove('active'); }
+});
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  e.preventDefault();
+  dragCounter = 0;
+  overlay.classList.remove('active');
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    inputEl.value = ev.target.result;
+    process();
+  };
+  reader.readAsText(file);
+});
+
+// ── Input handler ──────────────────────────────────────────────
+inputEl.addEventListener('input', process);
+inputEl.addEventListener('keydown', e => {
+  if (e.key === 'Tab') {
+    e.preventDefault();
+    const s = inputEl.selectionStart, end = inputEl.selectionEnd;
+    inputEl.value = inputEl.value.substring(0, s) + '  ' + inputEl.value.substring(end);
+    inputEl.selectionStart = inputEl.selectionEnd = s + 2;
+    process();
+  }
+});
+
+// ── Init ──────────────────────────────────────────────────────
+process();
+</script>
+</body>
+</html>

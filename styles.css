@@ -1,0 +1,266 @@
+@import './theme.css';
+
+/* ── Reset ─────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* ── Base ──────────────────────────────────────────────────── */
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ────────────────────────────────────────────────── */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.logo {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: 0.5px;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* ── Buttons ───────────────────────────────────────────────── */
+button {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+button:hover  { background: var(--border); color: #fff; }
+button.active { background: var(--accent);  color: #1a1b1e; border-color: var(--accent);  font-weight: 600; }
+button.success{ background: var(--success); color: #1a1b1e; border-color: var(--success); }
+
+/* ── Layout ────────────────────────────────────────────────── */
+.main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.pane {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.pane + .pane {
+  border-left: 1px solid var(--border);
+}
+
+/* ── Pane header ───────────────────────────────────────────── */
+.pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  gap: 8px;
+}
+
+.pane-label {
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--text-dim);
+}
+
+.pane-meta  { display: flex; gap: 12px; align-items: center; }
+.meta-item  { color: var(--text-dim); font-size: 11px; }
+
+/* ── Editor (input pane) ───────────────────────────────────── */
+.editor-wrap {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  position: relative;
+}
+
+.line-numbers {
+  width: 44px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+  overflow: hidden;
+  user-select: none;
+  text-align: right;
+}
+
+.line-numbers span {
+  display: block;
+  line-height: 1.6;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  color: var(--text-dim);
+  padding-right: 8px;
+  height: 19.2px;
+}
+
+textarea {
+  flex: 1;
+  background: var(--bg);
+  color: var(--text);
+  border: none;
+  outline: none;
+  resize: none;
+  padding: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+  overflow: auto;
+  white-space: pre;
+}
+textarea::selection { background: #2d4a6e; }
+
+/* ── Output pane ───────────────────────────────────────────── */
+.output-scroll {
+  flex: 1;
+  overflow: auto;
+  background: var(--bg);
+}
+
+.output-inner {
+  display: flex;
+  min-height: 100%;
+}
+
+.output-lines {
+  width: 44px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  padding: 12px 0;
+  user-select: none;
+  text-align: right;
+}
+
+.output-lines span {
+  display: block;
+  line-height: 1.6;
+  font-size: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  color: var(--text-dim);
+  padding-right: 8px;
+  height: 19.2px;
+}
+
+#output {
+  flex: 1;
+  padding: 12px;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  white-space: pre;
+  overflow: visible;
+  min-width: 0;
+}
+
+/* ── Status bar ────────────────────────────────────────────── */
+.status-bar {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.status-valid { color: var(--success); font-weight: 600; }
+.status-error { color: var(--error);   font-weight: 600; }
+
+/* ── Syntax highlighting ───────────────────────────────────── */
+.jk { color: var(--key);    }   /* object key   */
+.js { color: var(--string); }   /* string value */
+.jn { color: var(--number); }   /* number       */
+.jb { color: var(--bool);   }   /* boolean      */
+.jl { color: var(--null);   }   /* null         */
+.jp { color: var(--brace);  }   /* punctuation  */
+
+/* ── Collapsible tree ──────────────────────────────────────── */
+.node { display: inline; }
+
+.toggle {
+  cursor: pointer;
+  user-select: none;
+  color: var(--arrow);
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  font-size: 10px;
+  transition: transform 0.15s;
+}
+.toggle:hover { color: var(--accent); }
+
+.collapsible { display: inline; }
+.collapsed > .collapsible { display: none; }
+.collapsed > .ellipsis    { display: inline; }
+.collapsed > .toggle      { transform: rotate(-90deg); }
+
+.ellipsis { display: none; color: var(--text-dim); }
+
+/* ── Drag-drop overlay ─────────────────────────────────────── */
+.drop-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(77, 171, 247, 0.12);
+  border: 3px dashed var(--accent);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: var(--accent);
+  font-weight: 700;
+  pointer-events: none;
+}
+.drop-overlay.active { display: flex; }
+
+/* ── Utilities ─────────────────────────────────────────────── */
+#file-input { display: none; }
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  body  { overflow: auto; height: auto; }
+  .main { flex-direction: column; height: auto; }
+  .pane { min-height: 300px; }
+  .pane + .pane { border-left: none; border-top: 1px solid var(--border); }
+  header { position: sticky; top: 0; z-index: 10; }
+}
